@@ -650,7 +650,7 @@ func (p *Page) setAutoSummary() error {
 
 func (p *Page) renderContent(content []byte) []byte {
 	return p.s.ContentSpec.RenderBytes(&helpers.RenderingContext{
-		Content: content, RenderTOC: true, PageFmt: p.determineMarkupType(),
+		Content: content, RenderTOC: true, PageFmt: p.Markup,
 		Cfg:        p.Language(),
 		DocumentID: p.UniqueID(), DocumentName: p.Path(),
 		Config: p.getRenderingConfig()})
@@ -1146,6 +1146,42 @@ func (p *Page) updateMetadata() error {
 		p.Lastmod = p.Date
 	}
 	p.Params["lastmod"] = p.Lastmod
+
+	p.determineMarkupType()
+
+	p.s.Log.WARN.Printf("markup is %s for %s", p.Markup, p.pathOrTitle())
+
+	if p.Title == "" && (p.Markup == "asciidoc" || p.Markup == "markdown" || p.Markup == "org") {
+		p.s.Log.WARN.Printf("trying to detect title for %s for %s", p.Markup, p.pathOrTitle())
+		var prefix = "!"
+		if p.Markup == "markdown" {
+			prefix = "#"
+		}
+		if p.Markup == "asciidoc" {
+			prefix = "="
+		}
+		if p.Markup == "org" {
+			prefix = "\\*"
+		}
+
+		rp := regexp.MustCompile("(?m)^" + prefix + "+ +(.*)$")
+		var matches = rp.FindStringSubmatch(p.RawContent())
+		p.s.Log.WARN.Printf("found %v", matches)
+		if len(matches) > 0 {
+			p.s.Log.WARN.Print("Using %s for title", matches[1])
+			p.Title = matches[1]
+		}
+	}
+
+	if p.Title == "" {
+		if p.Slug != "" {
+			p.Title = p.s.titleFunc(strings.Replace(p.Slug, "-", " ", -1))
+		}
+
+		if p.Title == "" {
+			p.Title = "Untitled " + p.Lastmod.Format("2006-01-02 15:04")
+		}
+	}
 	return nil
 
 }

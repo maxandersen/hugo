@@ -629,6 +629,39 @@ func TestCreateNewPage(t *testing.T) {
 	testAllMarkdownEnginesForPages(t, assertFunc, settings, simplePage)
 }
 
+func TestTitleWhenNoFrontMatterAsciidoc(t *testing.T) {
+	t.Parallel()
+
+	for i, this := range []struct {
+		markup  string
+		content string
+	}{
+		{"ad", `= A great title
+here is some body text
+`,
+		},
+		{"markdown", `# A great title
+here is some body text
+`},
+		{"org", `* A great title
+here is some body text
+`},
+	} {
+		cfg, fs := newTestCfg()
+
+		writeSource(t, fs, filepath.Join("content", "2017-01-31-simple."+this.markup), this.content)
+
+		s := buildSingleSite(t, deps.DepsCfg{Fs: fs, Cfg: cfg}, BuildCfg{SkipRender: true})
+
+		require.Len(t, s.RegularPages, 1, fmt.Sprintf("[%d] pages missing for %s", i, this.markup)) 
+
+		p := s.RegularPages[0]
+
+		require.Equal(t, "A great title", p.Title, fmt.Sprintf("[%d] Title mismatch for %s with markup %s", i, p.pathOrTitle(), p.Markup))
+
+	}
+}
+
 func TestSplitSummaryAndContent(t *testing.T) {
 	t.Parallel()
 	for i, this := range []struct {
